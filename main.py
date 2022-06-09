@@ -5,6 +5,33 @@ import networkx as nx
 import pandas as pd
 import matplotlib.pyplot as plt
 
+'''
+Lokta Volterra 
+
+aN -bNP = cNP - dP (estado estacionario)
+
+N -> presa
+P -> depredador
+a -> reproducción presa
+d -> reproducción depredador
+b -> tasa de cambio debida a la interacción
+c -> tasa de cambio debida a la interacción
+
+Lokta Volterra del paper
+
+rH^k - qCH = gqCH - mC (estado estacionario)
+
+H -> presa
+C -> depredador
+r -> reproducción presa
+g -> reproducción depredador
+m -> tasa de mortalidad depredador
+q -> fuerza de interacción trófica (no 100 porciento necesaria)
+k -> exponente de escala de la comunidad de presas (tampoco necesaria)
+'''
+
+
+
 #################### Settings ####################
 CSV_FILEPATH = os.path.join("FW_005", "FW_005.csv")
 CSV_FILEPATH_2 = os.path.join("FW_005", "FW_005-species.csv")
@@ -14,6 +41,7 @@ COMPETITION = 0.001
 
 REPRODUCTION_RATE_PRAY = 1.5
 REPRODUCTION_RATE_PREDATOR = 1
+PREDATOR_MORTALITY = 1.2
 
 #################### Functions ####################
 def create_iteraction_matrix(filepath=CSV_FILEPATH, self_limitation=SELF_LIMITATION,
