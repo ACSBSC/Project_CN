@@ -6,30 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import random
 
-'''
-Lokta Volterra 
-
-aN -bNP = cNP - dP (estado estacionario)
-
-N -> presa
-P -> depredador
-a -> reproducción presa
-d -> reproducción depredador
-b -> tasa de cambio debida a la interacción
-c -> tasa de cambio debida a la interacción
-
-Lokta Volterra del paper
-
-rH^k - qCH = gqCH - mC (estado estacionario)
-
-H -> presa
-C -> depredador
-r -> reproducción presa
-g -> reproducción depredador
-m -> tasa de mortalidad depredador
-q -> fuerza de interacción trófica (no 100 porciento necesaria)
-k -> exponente de escala de la comunidad de presas (tampoco necesaria)
-'''
 
 #################### Settings ####################
 MUTUALISMS_FILEPATH = os.path.join("FW_005", "FW_005.csv")
@@ -71,7 +47,7 @@ def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limit
 
     return inter_matrix
 
-def create_network(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
+def initialization(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
                    species_filepath=SPECIES_FILEPATH, min_population=MIN_POPULATION,
                    population_per_prey=POPULATION_PER_PREY):
     # Get species names
@@ -114,45 +90,50 @@ def create_network(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
 
     return G, populations, self_growings
 
-def grow_species(populations, self_growings, inter_matrix):
-    update = populations * (self_growings - np.sum(inter_matrix * populations, axis=1))
-    return update
+
+
+def simulation(inter_matrix, self_growings, populations, G, first_id_to_extinct, iterations):
+    populations[first_id_to_extinct] = 0
+    extinct_node = G.nodes[first_id_to_extinct]
+    extinct_dict = {first_id_to_extinct: extinct_node}
+    print(f"FIRST TO EXTINCT: ID{first_id_to_extinct} = {extinct_node}")
+
+    for i in range(iterations):
+        # Compute and apply update
+        update = populations * (self_growings - np.sum(inter_matrix * populations, axis=1))
+        new_populations = populations + update
+
+        # Check for extinction
+        extinct_ids = np.where(new_populations <= 0)[0]
+        if len(extinct_ids) > 0:
+            new_populations[extinct_ids] = 0
+            # Print extinction information
+            for id_extinct in extinct_ids:
+                if not id_extinct in extinct_dict:
+                    extinct_dict[id_extinct] = (i, G.nodes[id_extinct])
+                    print(f"Iteration {i + 1} | EXTINCTION: ID{id_extinct} = {G.nodes[id_extinct]}")
+
+        # Check for end of simulation
+        if np.sum(new_populations - populations) == 0:
+            break
+        else:
+            populations = new_populations
+
+    return extinct_dict, populations
+
 
 #################### Main ####################
 if __name__ == "__main__":
     inter_matrix = create_iteractions_matrix()
 
-    G, populations, self_growings = create_network(inter_matrix)
-
-    # Initialize simulation
-    iterations = [1000]
+    G, populations, self_growings = initialization(inter_matrix)
     print("------------------------------------------------------")
 
-    # Remove an specie
-    id_removed = 18  # random.randint(0, 43)
-    populations[id_removed] = 0
-    extinct_dict = {id_removed: G.nodes[id_removed]}
-    print(f"FIRST TO EXTINCT: {id_removed} = {G.nodes[id_removed]}")
+    iterations = 1000
+    first_id_to_extinct = 28    # 18 = Dolphins
+    extinct_dict, new_populations = simulation(inter_matrix, self_growings, populations, G, first_id_to_extinct, iterations)
+    print("------------------------------------------------------")
 
-    for it in iterations:
-        for i in range(it):
-            update = grow_species(populations, self_growings, inter_matrix)
-            populations += update
-
-            # Check for extinction
-            extinct_ids = np.where(populations <= 0)[0]
-            if len(extinct_ids) > 0:
-                populations[extinct_ids] = 0
-                for id_extinct in extinct_ids:
-                    if not id_extinct in extinct_dict:
-                        extinct_dict[id_extinct] = G.nodes[id_extinct]
-                        print(f"Iteration {i+1} | EXTINCTION: {id_extinct} = {G.nodes[id_extinct]}")
-
-            # Check for end of simulation
-            if len(extinct_ids) == len(populations):
-                break
-
-    print("--------------------------------------------------------")
-    survival_ids = np.where(populations > 0)[0]
+    survival_ids = np.where(new_populations > 0)[0]
     for survived_id in survival_ids:
-        print(f"SURVIVED: {survived_id} = {G.nodes[survived_id]['specie']} with a population of {int(populations[survived_id])} (initial {int(G.nodes[survived_id]['ini_population'])})")
+        print(f"SURVIVED: ID{survived_id} = {G.nodes[survived_id]} with a population of {int(new_populations[survived_id])})")
