@@ -82,9 +82,13 @@ def initialization(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
         print(node)
 
     # Plot network
+    title = 'Gulf of Cadiz Food-Web Network'
+    plt.figure(figsize=(10,5))
+    ax = plt.gca()
+    ax.set_title(title)
     pos = nx.spring_layout(G)
     names = nx.get_node_attributes(G, 'specie')
-    nx.draw(G, pos, node_size=500, with_labels=True)
+    nx.draw(G, pos, node_size=500, with_labels=True, ax=ax)
     # nx.draw_networkx_labels(G, pos, labels=names)
     plt.show()
 
