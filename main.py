@@ -9,16 +9,16 @@ import random
 MUTUALISMS_FILEPATH = os.path.join("FW_005", "FW_005.csv")
 SPECIES_FILEPATH = os.path.join("FW_005", "FW_005_species.csv")
 SELF_LIMITATION = 0.01
-MUTUALISM = 1e-5
-COMPETITION = 1e-6
+MUTUALISM_WEIGHT = 1e-5
+COMPETITION_WEIGHT = 1e-6
 
 MIN_POPULATION = 1e2
-POPULATION_PER_PREY = 1e2
+POPULATION_INC_PER_PREY = 5e1
 
 
 #################### Functions ####################
 def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limitation=SELF_LIMITATION,
-                              mutualism=MUTUALISM, competition=COMPETITION):
+                              mutualism_weight=MUTUALISM_WEIGHT, competition_weight=COMPETITION_WEIGHT):
     # Read mutualism matrix
     mutualism_mat = np.genfromtxt(mutualism_filepath, delimiter=',', dtype=float)
     num_individuals = mutualism_mat.shape[0]
@@ -38,7 +38,7 @@ def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limit
                 competition_mat[i, j] = np.sum(mutualism_mat[:, j], where=mutualism_mat[:, i] > 0)
 
     # Create interactions matrix
-    inter_matrix = mutualism * mutualism_mat + competition * competition_mat
+    inter_matrix = mutualism_weight * mutualism_mat + competition_weight * competition_mat
 
     # Set self-limitation
     np.fill_diagonal(inter_matrix, self_limitation)
@@ -47,7 +47,7 @@ def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limit
 
 
 def balanced_ini_state(interactions_mat, mutualism_mat, min_population=MIN_POPULATION,
-                       population_per_prey=POPULATION_PER_PREY):
+                       population_per_prey=POPULATION_INC_PER_PREY):
     # Get number of preys per specie
     num_preys_arr = np.count_nonzero(mutualism_mat, axis=1)
 
@@ -100,43 +100,70 @@ def plot_network(G):
 
 def simulation(interactions_mat, self_growings, populations, G, first_id_to_extinct, n_iterations):
     # Initialize populations history
-    populations_history = np.empty((n_iterations + 1, len(populations)))
-    populations_history[0, :] = populations[:]
+    populations_history = np.empty((len(populations), n_iterations + 1))
+    populations_history[:, 0] = populations[:]
 
     # Extinct the first
-    populations_history[0, first_id_to_extinct] = 0
+    populations_history[first_id_to_extinct, 0] = 0
     extinct_node = G.nodes[first_id_to_extinct]
-    extinct_dict = {first_id_to_extinct: extinct_node}
-    print(f"FIRST TO EXTINCT: ID{first_id_to_extinct} = {extinct_node}")
+    extinct_dict = {first_id_to_extinct: (0, extinct_node)}
 
     # Simulation loop
     performed_iterations = n_iterations
     for i in range(1, n_iterations + 1):
         # Compute and apply update
-        update = populations_history[i - 1] * (
-                    self_growings - np.sum(interactions_mat * populations_history[i - 1], axis=1))
-        populations_history[i] = populations_history[i - 1] + update
+        update = populations_history[:, i - 1] * (
+                    self_growings - np.sum(interactions_mat * populations_history[:, i - 1], axis=1))
+        populations_history[:, i] = populations_history[:, i - 1] + update
 
         # Check for extinction
-        extinct_ids = np.where(populations_history[i] <= 0)[0]
+        extinct_ids = np.where(populations_history[:, i] <= 0)[0]
         if len(extinct_ids) > 0:
-            populations_history[i, extinct_ids] = 0
+            populations_history[extinct_ids, i] = 0
             # Print extinction information
             for id_extinct in extinct_ids:
                 if not id_extinct in extinct_dict:
                     extinct_dict[id_extinct] = (i, G.nodes[id_extinct])
-                    print(f"Iteration {i} | EXTINCTION: ID{id_extinct} = {G.nodes[id_extinct]}")
+
 
         # Check for end of simulation
         if np.sum(update) == 0:
-            performed_iterations = i
-            populations_history = populations_history[:i + 1, :]
+            populations_history = populations_history[:, :i + 1]
             break
-
-    print(f"SIMULATION FINISHED AFTER {performed_iterations} iterations")
 
     return extinct_dict, populations_history
 
+
+def print_simulation_results(extinct_dict, populations_history, G):
+    print(f"SIMULATION FINISHED AFTER {len(populations_history[0, :])-1} iterations")
+
+    # Extinct
+    for id_extinct, (i, node) in extinct_dict.items():
+        if i == 0:
+            print(f"FIRST TO EXTINCT: ID{id_extinct} = {node}")
+        else:
+            print(f"Iteration {i} | EXTINCTION: ID{id_extinct} = {node}")
+
+    print("------------------------------------------------------")
+
+    # Survived
+    new_populations = populations_history[:, -1]
+    survival_ids = np.where(new_populations > 0)[0]
+    print(f"{len(survival_ids)} SURVIVED")
+    for survived_id in survival_ids:
+        print(f"SURVIVED: ID{survived_id} = {G.nodes[survived_id]} "
+              f"with a population of {int(new_populations[survived_id])})")
+
+
+def plot_populations_history(populations_history, G, alive_or_dead):
+    plt.figure(figsize=(15, 7))
+    plt.suptitle('Populations history')
+    for idx, population_history in enumerate(populations_history):
+        if alive_or_dead or population_history[-1] > 0:
+            plt.plot(population_history, label=G.nodes[idx]["specie"])
+
+    plt.legend()
+    plt.show()
 
 #################### Main ####################
 if __name__ == "__main__":
@@ -148,19 +175,17 @@ if __name__ == "__main__":
 
     # Network
     G = create_network(interactions_mat, populations, self_growings)
+    #plot_network(G)
 
     print("------------------------------------------------------")
 
     n_iterations = 1000
-    first_id_to_extinct = 28  # 18 = Dolphins, 28 = Macrozooplankton, 38 = Sharks # random.randint(0, len(populations))
+    first_id_to_extinct = 38  # 18 = Dolphins, 28 = Macrozooplankton, 38 = Sharks # random.randint(0, len(populations))
     extinct_dict, populations_history = simulation(interactions_mat, self_growings, populations, G, first_id_to_extinct,
                                                    n_iterations)
-    print("------------------------------------------------------")
 
     # Manage simulation results
-    new_populations = populations_history[-1, :]
-    survival_ids = np.where(new_populations > 0)[0]
-    print(f"{len(survival_ids)} ANIMALS SURVIVED")
-    for survived_id in survival_ids:
-        print(f"SURVIVED: ID{survived_id} = {G.nodes[survived_id]} "
-              f"with a population of {int(new_populations[survived_id])})")
+    print_simulation_results(extinct_dict, populations_history, G)
+    plot_populations_history(populations_history, G, alive_or_dead=True)
+    plot_populations_history(populations_history, G, alive_or_dead=False)
+
