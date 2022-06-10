@@ -2,10 +2,8 @@
 import numpy as np
 import os
 import networkx as nx
-import pandas as pd
 import matplotlib.pyplot as plt
 import random
-
 
 #################### Settings ####################
 MUTUALISMS_FILEPATH = os.path.join("FW_005", "FW_005.csv")
@@ -20,7 +18,7 @@ POPULATION_PER_PREY = 1e3
 
 #################### Functions ####################
 def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limitation=SELF_LIMITATION,
-                             mutualism=MUTUALISM, competition=COMPETITION):
+                              mutualism=MUTUALISM, competition=COMPETITION):
     # Read mutualism matrix
     mutualism_mat = np.genfromtxt(mutualism_filepath, delimiter=',', dtype=float)
     num_individuals = mutualism_mat.shape[0]
@@ -28,7 +26,7 @@ def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limit
     # Remove cannibalism
     np.fill_diagonal(mutualism_mat, 0)
 
-    # Make weights to sum 1
+    # Make columns to sum 1
     col_weights = mutualism_mat.sum(0)
     np.divide(mutualism_mat, col_weights, where=col_weights != 0, out=mutualism_mat)
 
@@ -45,17 +43,12 @@ def create_iteractions_matrix(mutualism_filepath=MUTUALISMS_FILEPATH, self_limit
     # Set self-limitation
     np.fill_diagonal(inter_matrix, self_limitation)
 
-    return inter_matrix
+    return inter_matrix, mutualism_mat, competition_mat
 
-def initialization(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
-                   species_filepath=SPECIES_FILEPATH, min_population=MIN_POPULATION,
+
+def balanced_ini_state(interactions_mat, mutualism_mat, min_population=MIN_POPULATION,
                    population_per_prey=POPULATION_PER_PREY):
-    # Get species names
-    species = np.genfromtxt(species_filepath, delimiter=',', dtype=str)
-
     # Get number of preys per specie
-    mutualism_mat = np.genfromtxt(mutualism_filepath, delimiter=',', dtype=float)
-    np.fill_diagonal(mutualism_mat, 0)  # Remove cannibalism
     num_preys_arr = np.count_nonzero(mutualism_mat, axis=1)
 
     # Initial population is the multiplication of how many predators the specie has with
@@ -63,27 +56,39 @@ def initialization(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
     populations = num_preys_arr * population_per_prey + min_population
     populations = populations.astype(float)
 
-    # Self growing factor is defined for an stable state, so is equal ΣMij*xj
-    self_growings = np.sum(inter_matrix * populations, axis=1)
+    # Self growing factor is defined for a balanced state, so is equal ΣMij*xj
+    self_growings = np.sum(interactions_mat * populations, axis=1)
 
-    # Create network nodes with the corresponding properties
+    return populations, self_growings
+
+
+def create_network(interactions_mat, populations, self_growings, species_filepath=SPECIES_FILEPATH, verbose=True):
     G = nx.Graph()
+
+    # Get species names
+    species = np.genfromtxt(species_filepath, delimiter=',', dtype=str)
+
+    # Create nodes nodes with the corresponding properties
     for node_idx, (specie, population, self_growing) in enumerate(zip(species, populations, self_growings)):
         G.add_nodes_from([(node_idx, {"specie": specie, "ini_population": population, "self_growing": self_growing})])
 
-    # Create network edges
-    for i in range(len(inter_matrix)):
-        for j in range(i + 1, len(inter_matrix)):
-            if inter_matrix[i][j] > 0:
-                G.add_edge(i, j, weight=inter_matrix[i][j])
+    # Create edges
+    for i in range(len(interactions_mat)):
+        for j in range(i + 1, len(interactions_mat)):
+            if interactions_mat[i][j] > 0:
+                G.add_edge(i, j, weight=interactions_mat[i][j])
 
-    # Print nodes data
-    for node in G.nodes.data():
-        print(node)
+    if verbose:
+        # Print nodes data
+        for node in G.nodes.data():
+            print(node)
 
-    # Plot network
+    return G
+
+
+def plot_network(G):
     title = 'Gulf of Cadiz Food-Web Network'
-    plt.figure(figsize=(10,5))
+    plt.figure(figsize=(10, 5))
     ax = plt.gca()
     ax.set_title(title)
     pos = nx.spring_layout(G)
@@ -92,11 +97,8 @@ def initialization(inter_matrix, mutualism_filepath=MUTUALISMS_FILEPATH,
     # nx.draw_networkx_labels(G, pos, labels=names)
     plt.show()
 
-    return G, populations, self_growings
 
-
-
-def simulation(inter_matrix, self_growings, populations, G, first_id_to_extinct, iterations):
+def simulation(interactions_mat, self_growings, populations, G, first_id_to_extinct, iterations):
     populations[first_id_to_extinct] = 0
     extinct_node = G.nodes[first_id_to_extinct]
     extinct_dict = {first_id_to_extinct: extinct_node}
@@ -104,7 +106,7 @@ def simulation(inter_matrix, self_growings, populations, G, first_id_to_extinct,
 
     for i in range(iterations):
         # Compute and apply update
-        update = populations * (self_growings - np.sum(inter_matrix * populations, axis=1))
+        update = populations * (self_growings - np.sum(interactions_mat * populations, axis=1))
         new_populations = populations + update
 
         # Check for extinction
@@ -128,16 +130,24 @@ def simulation(inter_matrix, self_growings, populations, G, first_id_to_extinct,
 
 #################### Main ####################
 if __name__ == "__main__":
-    inter_matrix = create_iteractions_matrix()
+    # Interactions matrix
+    interactions_mat, mutualism_mat, competition_mat = create_iteractions_matrix()
 
-    G, populations, self_growings = initialization(inter_matrix)
+    # Simulation parameters for ecosystem equilibrium
+    populations, self_growings = balanced_ini_state(interactions_mat, mutualism_mat)
+
+    # Network
+    G = create_network(interactions_mat, populations)
+
     print("------------------------------------------------------")
 
     iterations = 1000
-    first_id_to_extinct = 28    # 18 = Dolphins
-    extinct_dict, new_populations = simulation(inter_matrix, self_growings, populations, G, first_id_to_extinct, iterations)
+    first_id_to_extinct = 28  # 18 = Dolphins # random.randint(0, len(populations))
+    extinct_dict, new_populations = simulation(interactions_mat, self_growings, populations, G, first_id_to_extinct,
+                                               iterations)
     print("------------------------------------------------------")
 
     survival_ids = np.where(new_populations > 0)[0]
     for survived_id in survival_ids:
-        print(f"SURVIVED: ID{survived_id} = {G.nodes[survived_id]} with a population of {int(new_populations[survived_id])})")
+        print(
+            f"SURVIVED: ID{survived_id} = {G.nodes[survived_id]} with a population of {int(new_populations[survived_id])})")
