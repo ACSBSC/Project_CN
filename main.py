@@ -7,7 +7,6 @@
 ######################################################################
 
 
-
 ######################################## Imports ########################################
 import numpy as np
 import os
@@ -37,7 +36,6 @@ COMPETITION_WEIGHTS = [math.pow(10, -i) for i in range(1, 10)]
 ########### Simulation ###########
 N_ITERATIONS = 100
 EXTICTION_FACTOR = 0
-
 
 
 ######################################## Functions ########################################
@@ -147,24 +145,28 @@ def create_network(interactions_mat, populations, self_growings, species_filepat
         # Print nodes data
         for node in G.nodes.data():
             print(node)
+
     id_min = 0
     id_max = 0
     min = 100
     max = 0
     count = 0
     for n in G:
-        if G.degree[n]>max:
+        if G.degree[n] > max:
             max = G.degree[n]
             id_max = n
         if G.degree[n] < min:
             min = G.degree[n]
-            id_min=n
-        count+=G.degree[n]    
-    count = count/len(G)    
+            id_min = n
+        count += G.degree[n]
+
+    count = count/len(G)
+
     print("Max Degree " + str(id_max) + ":" + str(max))
     print("Min Degree " + str(id_min) + ":" + str(min))
     print("Average Degree " + str(count))
-    #plot_network(G)
+    plot_network(G)
+
     return G
 
 
@@ -221,26 +223,43 @@ def test(predation_mat, mutualism_mat, competition_mat, self_limitation, mutuali
 
     # Network
     G = create_network(interactions_mat, populations, self_growings, verbose=False)
-    # plot_network(G)
-    # print("------------------------------------------------------")
+
+    # Network metrics
+    degree_array = []
+    species_survived = []
+
+    pr = nx.pagerank(G, alpha=0.9)
+    pagerank = np.fromiter(pr.values(), dtype=float)
+
+    bc = nx.betweenness_centrality(G)
+    betweenness = np.fromiter(bc.values(), dtype=float)
 
     populations_history_list = []
     for first_to_extinct in range(len(populations)):
+        degree_array.append(G.degree[first_to_extinct])
+
         populations_history = simulation(interactions_mat, self_growings, populations, first_to_extinct)
         populations_history_list.append(populations_history)
 
         # Show results if desired
         if verbose:
-            print_simulation_results(populations_history, G, first_to_extinct)
+            species_survived.append(print_simulation_results(populations_history, G, first_to_extinct))
             plot_populations_history(populations_history, G, first_to_extinct, include_extinct=True)
             plot_populations_history(populations_history, G, first_to_extinct, include_extinct=False)
+
+    degree_array = np.array(degree_array)
+    species_survived = np.array(species_survived)
+
+    print("Pearson correlation node degree: ", np.corrcoef(degree_array, species_survived))
+    print("Pearson correlation PageRank: ", np.corrcoef(pagerank, species_survived))
+    print("Pearson correlation Betweenness: ", np.corrcoef(betweenness, species_survived))
 
     return populations_history_list
 
 
 ########### Results ###########
 def print_simulation_results(populations_history, G, first_to_extinct):
-    #print(f"SIMULATION FINISHED AFTER {len(populations_history[0, :])-1} iterations")
+    # print(f"SIMULATION FINISHED AFTER {len(populations_history[0, :])-1} iterations")
 
     # Who is extinct who survives
     num_survived = 0
@@ -258,6 +277,8 @@ def print_simulation_results(populations_history, G, first_to_extinct):
             #      f"with a population of {int(history[-1])})")
 
     print(f"WHEN {G.nodes[first_to_extinct]['specie']} EXTINCTS, {num_survived} SPECIES SURVIVE")
+
+    return num_survived
 
 
 def plot_populations_history(populations_history, G, first_to_extinct, include_extinct):
@@ -292,7 +313,6 @@ def get_extinctions_amounts(populations_histories) -> np.array:
     extinction_amounts = [np.count_nonzero(history[:, -1]) for history in populations_histories]
     extinction_amounts = np.array(extinction_amounts)
     return extinction_amounts
-
 
 
 #################### Main ####################
