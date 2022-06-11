@@ -6,7 +6,7 @@ Work done by Anne Schreiber Brito, Benet Manznares Salor and Ruben Vera Garcia
 FOLDERS AND FILES
 -----------------
 
-    - FW_005: csv and net files of Web of Life, dataset used
+    - FW_005: Files of Web of Life, dataset used
     - main.py: Main execution file with source code implemented
 
 
