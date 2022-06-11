@@ -147,7 +147,24 @@ def create_network(interactions_mat, populations, self_growings, species_filepat
         # Print nodes data
         for node in G.nodes.data():
             print(node)
-
+    id_min = 0
+    id_max = 0
+    min = 100
+    max = 0
+    count = 0
+    for n in G:
+        if G.degree[n]>max:
+            max = G.degree[n]
+            id_max = n
+        if G.degree[n] < min:
+            min = G.degree[n]
+            id_min=n
+        count+=G.degree[n]    
+    count = count/len(G)    
+    print("Max Degree " + str(id_max) + ":" + str(max))
+    print("Min Degree " + str(id_min) + ":" + str(min))
+    print("Average Degree " + str(count))
+    #plot_network(G)
     return G
 
 
