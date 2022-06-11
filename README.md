@@ -8,6 +8,7 @@ FOLDERS AND FILES
 
     - FW_005: Files of Web of Life, dataset used
     - main.py: Main execution file with source code implemented
+    - Report.pdf: Report explaining the project
 
 
 EXECUTION STEPS
