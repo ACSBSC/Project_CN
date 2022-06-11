@@ -26,5 +26,7 @@ CONTACT INFORMATION
 -------------------
 
 Benet Manzanares Salor: benet.manzanares@urv.cat
+
 Anne Schreiber Brito: anne_csb_sc@hotmail.com
+
 Ruben Vera Garcia: ruben.vera@estudiantat.upc.edu
