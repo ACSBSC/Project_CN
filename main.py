@@ -16,22 +16,28 @@ import matplotlib.pyplot as plt
 import math
 
 ######################################## Settings ########################################
+########### Data ###########
 MUTUALISMS_FILEPATH = os.path.join("FW_005", "FW_005.csv")
 SPECIES_FILEPATH = os.path.join("FW_005", "FW_005_species.csv")
+
+########### Model ###########
+# Manually defined parameters
 SELF_LIMITATION = 1e-9  # Probability population dies
 MUTUALISM_WEIGHT = 1e-4
 COMPETITION_WEIGHT = 1e-9
-
-SELF_LIMITATIONS = [math.pow(10, -i) for i in range(1, 10)]
-MUTUALISM_WEIGHTS = [math.pow(10, -i) for i in range(1, 10)]
-COMPETITION_WEIGHTS = [math.pow(10, -i) for i in range(1, 10)]
-# BEST COMBINATION (22): 1.000000e-09 | 1.000000e-04 | 1.000000e-09
-
 MIN_POPULATION = 1e2
 POPULATION_INC_PER_PREY = 1e3
 
+# Best parameters search
+SELF_LIMITATIONS = [math.pow(10, -i) for i in range(1, 10)]
+MUTUALISM_WEIGHTS = [math.pow(10, -i) for i in range(1, 10)]
+COMPETITION_WEIGHTS = [math.pow(10, -i) for i in range(1, 10)]
+# BEST COMBINATION (22): 1e-09 | 1e-04 | 1e-09
+
+########### Simulation ###########
 N_ITERATIONS = 100
 EXTICTION_FACTOR = 0
+
 
 
 ######################################## Functions ########################################
@@ -261,7 +267,7 @@ def plot_populations_history(populations_history, G, first_to_extinct, include_e
     # Final settings and show
     plt.legend(prop={'size': 8})
     plt.xlabel("#Iterations")
-    plt.ylabel("Population size")
+    plt.ylabel("Population count")
     plt.show()
 
 
@@ -287,6 +293,5 @@ if __name__ == "__main__":
 
     # Experiment
     populations_history_list = test(predation_mat, mutualism_mat, competition_mat,
-                                    SELF_LIMITATION, MUTUALISM_WEIGHT, COMPETITION_WEIGHT, verbose=False)
+                                    SELF_LIMITATION, MUTUALISM_WEIGHT, COMPETITION_WEIGHT, verbose=True)
     extinction_amounts = get_extinctions_amounts(populations_history_list)
-    print(extinction_amounts)
